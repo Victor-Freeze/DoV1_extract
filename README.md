@@ -42,3 +42,4 @@ To compile this project on Windows, you can use Microsoft Visual Studio C++ Comp
 ## License
 GNU GPL (or depending on the underlying implementations from `dovi_tool` and `svt-av1-hdr`).
 
+
