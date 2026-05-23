@@ -1,3 +1,5 @@
+**The project is under development. Currently, the RPU files are corrupt**
+
 # Dolby Vision RPU Extractor
 
 An interactive, high-performance web tool and optimized C++ command-line utility for parsing Dolby Vision RPU (Reference Processing Unit) metadata from AV1 video streams. 
