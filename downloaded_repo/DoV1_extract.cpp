@@ -21,7 +21,7 @@ public:
             if (bit_offset >= size * 8) return value;
             uint8_t byte = data[bit_offset / 8];
             uint8_t bit = (byte >> (7 - (bit_offset % 8))) & 1;
-            value = (value << 1) | bit;s
+            value = (value << 1) | bit;
             bit_offset++;
         }
         return value;
