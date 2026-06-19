@@ -1,0 +1,23 @@
+# Visual Studio intermediate / build output
+.vs/
+x64/
+DoV1_extract/x64/
+DoV1_extract/Release/
+Release/
+*.obj
+*.log
+*.pdb
+*.tlog
+*.lastbuildstate
+*.recipe
+*.vcxproj.user
+
+# Node.js
+node_modules/
+
+# Python cache / test outputs
+__pycache__/
+*.pyc
+test.rpu
+test_cpp.rpu
+*.bin

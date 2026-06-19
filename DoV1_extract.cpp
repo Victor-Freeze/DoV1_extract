@@ -55,7 +55,6 @@ public:
         return value;
     }
     
-    // Read remaining bits into a byte vector, aligning correctly
     std::vector<uint8_t> read_remaining_bytes(size_t num_bytes) {
         std::vector<uint8_t> result;
         result.reserve(num_bytes);
@@ -66,7 +65,6 @@ public:
     }
 };
 
-// LEB128 reader
 uint64_t read_leb128(const std::vector<uint8_t>& data, size_t& offset) {
     uint64_t value = 0;
     uint64_t shift = 0;
@@ -79,12 +77,12 @@ uint64_t read_leb128(const std::vector<uint8_t>& data, size_t& offset) {
     return value;
 }
 
-// Add HEVC start code emulation prevention (00 00 03)
 std::vector<uint8_t> add_emulation_prevention(const std::vector<uint8_t>& data) {
     std::vector<uint8_t> result;
     result.reserve(data.size() * 3 / 2);
     for (size_t i = 0; i < data.size(); ++i) {
-        if (i >= 2 && data[i-2] == 0 && data[i-1] == 0 && data[i] <= 3) {
+        size_t r_size = result.size();
+        if (r_size >= 2 && result[r_size-2] == 0 && result[r_size-1] == 0 && data[i] <= 3) {
             result.push_back(0x03);
         }
         result.push_back(data[i]);
@@ -134,7 +132,6 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    // Read IVF Header
     uint8_t ivf_header[32];
     if (!file.read(reinterpret_cast<char*>(ivf_header), 32)) {
         std::cerr << "Error: Failed to read IVF header.\n";
@@ -177,54 +174,67 @@ int main(int argc, char* argv[]) {
                 obu_size = frame_size - offset;
             }
 
-            if (obu_type == 5) { // OBU_METADATA
+            if (obu_type == 5) {
                 size_t payload_start = offset;
                 uint64_t metadata_type = read_leb128(frame_data, payload_start);
 
-                if (metadata_type == 4) { // ITU-T T.35
+                if (metadata_type == 4) {
                     uint8_t country_code = frame_data[payload_start++];
                     if (country_code == 0xB5) {
                         uint16_t provider_code = (frame_data[payload_start] << 8) | frame_data[payload_start + 1];
                         payload_start += 2;
 
                         if (provider_code == 0x003B) {
-                            // Dolby Vision Signature: B5 00 3B 00 00 08 00 37 CD 08
-                            // (Actually it starts after country_code)
                             uint32_t provider_oriented_code = (frame_data[payload_start] << 24) | (frame_data[payload_start+1] << 16) | 
                                                              (frame_data[payload_start+2] << 8) | frame_data[payload_start+3];
                             payload_start += 4;
 
                             if (provider_oriented_code == 0x00000800) {
-                                // Bit-level parsing for EMDF
                                 BitReader br(&frame_data[payload_start], (offset + obu_size) - payload_start);
                                 
-                                // Parse EMDF Header
-                                uint32_t version = br.read_bits(2);     // 0
-                                uint32_t key_id = br.read_bits(3);      // 6
-                                uint32_t payload_id = br.read_bits(5);  // 31
-                                uint32_t payload_id_ext = br.read_variable_bits(5); // 225
+                                uint32_t version = br.read_bits(2);
+                                uint32_t key_id = br.read_bits(3);
+                                uint32_t payload_id = br.read_bits(5);
                                 
-                                br.read_bit(); // smploffste
-                                br.read_bit(); // duratione
-                                br.read_bit(); // groupide
-                                br.read_bit(); // codecdatae
-                                br.read_bit(); // discard_unknown_payload
+                                uint32_t actual_payload_id = payload_id;
+                                 if (payload_id == 31) {
+                                     actual_payload_id = br.read_variable_bits(5);
+                                 }
+                                
+                                // Перевірка на валідний Dolby Vision RPU payload (зазвичай 225)
+                                if (actual_payload_id == 225) {
+                                    bool smploffste = br.read_bit();
+                                    bool duratione = br.read_bit();
+                                    bool groupide = br.read_bit();
+                                    bool codecdatae = br.read_bit();
+                                    bool discard_unknown_payload = br.read_bit();
 
-                                uint32_t emdf_payload_size = br.read_variable_bits(8);
-                                
-                                if (verbose) {
-                                    std::cout << "Frame " << std::setw(6) << frame_count 
-                                              << ": Found DoVi RPU, size " << emdf_payload_size << " bytes\n";
+                                    if (smploffste) br.read_variable_bits(8);
+                                    if (duratione) br.read_variable_bits(8);
+                                    if (groupide) br.read_variable_bits(8);
+                                    if (codecdatae) {
+                                        uint32_t codec_data_len = br.read_variable_bits(8);
+                                        // Пропуск тіла кодекових даних для уникнення зсуву читання
+                                        for (uint32_t i = 0; i < codec_data_len; ++i) {
+                                            br.read_bits(8);
+                                        }
+                                    }
+
+                                    uint32_t emdf_payload_size = br.read_variable_bits(8);
+                                    
+                                    if (verbose) {
+                                        std::cout << "Frame " << std::setw(6) << frame_count 
+                                                  << ": Found DoVi RPU, size " << emdf_payload_size << " bytes\n";
+                                    }
+
+                                     std::vector<uint8_t> rpu_raw = br.read_remaining_bytes(emdf_payload_size);
+                                     
+                                     std::vector<uint8_t> rpu_with_prefix;
+                                     rpu_with_prefix.push_back(0x19);
+                                     rpu_with_prefix.insert(rpu_with_prefix.end(), rpu_raw.begin(), rpu_raw.end());
+
+                                     rpu_entries.push_back({ timestamp, rpu_with_prefix });
                                 }
-
-                                std::vector<uint8_t> rpu_raw = br.read_remaining_bytes(emdf_payload_size);
-                                
-                                // Prepend 0x19 prefix
-                                std::vector<uint8_t> rpu_with_prefix;
-                                rpu_with_prefix.push_back(0x19);
-                                rpu_with_prefix.insert(rpu_with_prefix.end(), rpu_raw.begin(), rpu_raw.end());
-
-                                rpu_entries.push_back({timestamp, rpu_with_prefix});
                             }
                         }
                     }
@@ -240,12 +250,10 @@ int main(int argc, char* argv[]) {
         return 0;
     }
 
-    // Sort entries by timestamp to ensure presentation order
     std::sort(rpu_entries.begin(), rpu_entries.end(), [](const RpuEntry& a, const RpuEntry& b) {
         return a.timestamp < b.timestamp;
     });
 
-    // Write to output file
     std::ofstream out_file(output_path, std::ios::binary);
     if (!out_file) {
         std::cerr << "Error: Could not open output file " << output_path << "\n";
@@ -253,14 +261,9 @@ int main(int argc, char* argv[]) {
     }
 
     for (const auto& entry : rpu_entries) {
-        // Wrap in HEVC NAL: 00 00 00 01 7C 01 ...
         std::vector<uint8_t> rpu_with_ep = add_emulation_prevention(entry.rpu_data);
-        
         uint8_t start_code[] = {0x00, 0x00, 0x00, 0x01};
-        uint8_t nal_header[] = {0x7C, 0x01};
-        
         out_file.write(reinterpret_cast<char*>(start_code), 4);
-        out_file.write(reinterpret_cast<char*>(nal_header), 2);
         out_file.write(reinterpret_cast<char*>(rpu_with_ep.data()), rpu_with_ep.size());
     }
 

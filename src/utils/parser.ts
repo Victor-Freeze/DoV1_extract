@@ -203,7 +203,7 @@ export async function extractRpusFromIvf(
                 // BUGFIX: payloadIdExt only exists if payloadId is exactly 31.
                 // Reading variable bits unconditionally caused incorrect parsing offsets on profile streams.
                 if (payloadId === 31) {
-                  payloadIdExt = br.readVariableBits(5) + 31;
+                  payloadIdExt = br.readVariableBits(5);
                 }
 
                 br.readBit(); // smploffste
@@ -214,9 +214,7 @@ export async function extractRpusFromIvf(
 
                 const emdfPayloadSize = br.readVariableBits(8);
 
-                // BUGFIX: The EMDF payload data starts on a byte boundary. Align the bit pointer 
-                // to the next byte boundary before reading raw payload bytes to avoid shifted buffer content.
-                br.align();
+                // Removed br.align() because the RPU payload is bit-shifted by 4 bits
                 const rpuRaw = br.readRemainingBytes(emdfPayloadSize);
 
                 const rpuWithPrefix = new Uint8Array(emdfPayloadSize + 1);
