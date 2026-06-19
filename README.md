@@ -69,10 +69,11 @@ The compiled executable requires a C++17 support environment (such as MSVC on Wi
    ```
 3. Perform translation extraction via commands:
    ```bash
-   ./DoV1_extract -i input_video.ivf -o output_rpu.bin -v
+   ./DoV1_extract -i input_video.ivf -o output_rpu.bin -av1 -v
    ```
    * `-i`: Path to the input AV1 `.ivf` container stream.
    * `-o`: Output path for binary Dolby Vision RPUs.
+   * `-av1`: (Optional) Extract RPU in AV1-RPU format (default is h.265-RPU).
    * `-v`: (Optional) Verbose list formatting details frame-by-frame.
 
 ### 4. How to run the Python Tool
@@ -80,8 +81,9 @@ Requires **Python 3.8+**.
 
 1. Run the extraction utility:
    ```bash
-   python Python/DoV1_extract.py -i input_video.ivf -o output_rpu.bin -v
+   python Python/DoV1_extract.py -i input_video.ivf -o output_rpu.bin -av1 -v
    ```
    * `-i`: Path to the input AV1 `.ivf` container stream.
    * `-o`: Output path for binary Dolby Vision RPUs.
+   * `-av1`: (Optional) Extract RPU in AV1-RPU format (default is h.265-RPU).
    * `-v`: (Optional) Verbose list formatting details frame-by-frame.

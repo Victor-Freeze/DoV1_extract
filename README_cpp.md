@@ -67,12 +67,13 @@ g++ -std=c++17 -O3 DoV1_extract.cpp -o DoV1_extract
 
 ### Usage:
 ```bash
-./DoV1_extract -i {input_av1_file.ivf} -o {output_rpu.bin} [-v]
+./DoV1_extract -i {input_av1_file.ivf} -o {output_rpu.bin} [-av1] [-v]
 ```
 
 ### Command Arguments:
 * `-i`: Path to the input AV1 video file (requires an **IVF** container).
 * `-o`: Path to the output binary file where the extracted Dolby Vision RPU payload will be saved.
+* `-av1`: (Optional) Extract RPU in AV1-RPU format (default is h.265-RPU).
 * `-v`: (Optional) Verbose list formatting details frame-by-frame.
 * `-h`: Shows the help message.
 
@@ -84,10 +85,11 @@ Requires **Python 3.8+**.
 
 ### Usage:
 ```bash
-python Python/DoV1_extract.py -i {input_av1_file.ivf} -o {output_rpu.bin} [-v]
+python Python/DoV1_extract.py -i {input_av1_file.ivf} -o {output_rpu.bin} [-av1] [-v]
 ```
 
 ### Command Arguments:
 * `-i`: Path to the input AV1 video file (requires an **IVF** container).
 * `-o`: Path to the output binary file where the extracted Dolby Vision RPU payload will be saved.
+* `-av1`: (Optional) Extract RPU in AV1-RPU format (default is h.265-RPU).
 * `-v`: (Optional) Verbose list formatting details frame-by-frame.
