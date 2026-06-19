@@ -62,7 +62,8 @@ def add_emulation_prevention(data):
 def main():
     parser = argparse.ArgumentParser(description="Dolby Vision RPU extractor for AV1 (IVF) in Python")
     parser.add_argument("-i", "--input", required=True, help="Input AV1 video file (IVF container)")
-    parser.add_argument("-o", "--output", required=True, help="Output RPU binary file (compatible with dovi_tool)")
+    parser.add_argument("-o", "--output", required=True, help="Output RPU binary file")
+    parser.add_argument("-av1", action="store_true", help="Extract RPU in AV1-RPU format (default is h.265-RPU)")
     parser.add_argument("-v", "--verbose", action="store_true", help="Verbose mode")
     
     args = parser.parse_args()
@@ -113,6 +114,7 @@ def main():
                     metadata_type, payload_start = read_leb128(frame_data, payload_start)
                     
                     if metadata_type == 4:  # ITU-T T.35
+                        country_code_idx = payload_start
                         country_code = frame_data[payload_start]
                         payload_start += 1
                         
@@ -153,10 +155,13 @@ def main():
                                 # Do NOT align (no br.align()) because payload is offset by 4 bits
                                 rpu_raw = br.read_remaining_bytes(emdf_payload_size)
                                 
-                                # Format RPU: starts with prefix byte 0x19
-                                rpu_formatted = bytearray()
-                                rpu_formatted.append(0x19)
-                                rpu_formatted.extend(rpu_raw)
+                                if args.av1:
+                                    rpu_formatted = frame_data[country_code_idx:obu_end]
+                                else:
+                                    # Format RPU: starts with prefix byte 0x19
+                                    rpu_formatted = bytearray()
+                                    rpu_formatted.append(0x19)
+                                    rpu_formatted.extend(rpu_raw)
                                 
                                 rpu_entries.append((timestamp, rpu_formatted))
                                 if args.verbose:

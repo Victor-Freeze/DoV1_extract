@@ -97,10 +97,11 @@ struct RpuEntry {
 
 void print_help() {
     std::cout << "DoV1_extract - Dolby Vision RPU extractor for AV1 (IVF)\n";
-    std::cout << "Usage: DoV1_extract -i {input_av1_ivf} -o {output_rpu_bin} [-v]\n";
+    std::cout << "Usage: DoV1_extract -i {input_av1_ivf} -o {output_rpu_bin} [-av1] [-v]\n";
     std::cout << "Options:\n";
     std::cout << "  -i    Input AV1 video file (IVF container)\n";
-    std::cout << "  -o    Output RPU binary file (compatible with dovi_tool)\n";
+    std::cout << "  -o    Output RPU binary file\n";
+    std::cout << "  -av1  Extract RPU in AV1-RPU format (default is h.265-RPU)\n";
     std::cout << "  -v    Verbose mode\n";
     std::cout << "  -h    Show this help\n";
 }
@@ -109,11 +110,13 @@ int main(int argc, char* argv[]) {
     std::string input_path;
     std::string output_path;
     bool verbose = false;
+    bool av1_mode = false;
 
     for (int i = 1; i < argc; ++i) {
         std::string arg = argv[i];
         if (arg == "-i" && i + 1 < argc) input_path = argv[++i];
         else if (arg == "-o" && i + 1 < argc) output_path = argv[++i];
+        else if (arg == "-av1") av1_mode = true;
         else if (arg == "-v") verbose = true;
         else if (arg == "-h" || arg == "--help") {
             print_help();
@@ -179,6 +182,7 @@ int main(int argc, char* argv[]) {
                 uint64_t metadata_type = read_leb128(frame_data, payload_start);
 
                 if (metadata_type == 4) {
+                    size_t country_code_idx = payload_start;
                     uint8_t country_code = frame_data[payload_start++];
                     if (country_code == 0xB5) {
                         uint16_t provider_code = (frame_data[payload_start] << 8) | frame_data[payload_start + 1];
@@ -227,13 +231,16 @@ int main(int argc, char* argv[]) {
                                                   << ": Found DoVi RPU, size " << emdf_payload_size << " bytes\n";
                                     }
 
-                                     std::vector<uint8_t> rpu_raw = br.read_remaining_bytes(emdf_payload_size);
-                                     
-                                     std::vector<uint8_t> rpu_with_prefix;
-                                     rpu_with_prefix.push_back(0x19);
-                                     rpu_with_prefix.insert(rpu_with_prefix.end(), rpu_raw.begin(), rpu_raw.end());
-
-                                     rpu_entries.push_back({ timestamp, rpu_with_prefix });
+                                     if (av1_mode) {
+                                         std::vector<uint8_t> av1_payload(frame_data.begin() + country_code_idx, frame_data.begin() + (offset + obu_size));
+                                         rpu_entries.push_back({ timestamp, av1_payload });
+                                     } else {
+                                         std::vector<uint8_t> rpu_raw = br.read_remaining_bytes(emdf_payload_size);
+                                         std::vector<uint8_t> rpu_with_prefix;
+                                         rpu_with_prefix.push_back(0x19);
+                                         rpu_with_prefix.insert(rpu_with_prefix.end(), rpu_raw.begin(), rpu_raw.end());
+                                         rpu_entries.push_back({ timestamp, rpu_with_prefix });
+                                     }
                                 }
                             }
                         }
