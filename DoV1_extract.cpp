@@ -233,13 +233,13 @@ int main(int argc, char* argv[]) {
 
                                      if (av1_mode) {
                                          std::vector<uint8_t> av1_payload(frame_data.begin() + country_code_idx, frame_data.begin() + (offset + obu_size));
-                                         rpu_entries.push_back({ timestamp, av1_payload });
+                                         rpu_entries.push_back({ timestamp, std::move(av1_payload) });
                                      } else {
                                          std::vector<uint8_t> rpu_raw = br.read_remaining_bytes(emdf_payload_size);
                                          std::vector<uint8_t> rpu_with_prefix;
                                          rpu_with_prefix.push_back(0x19);
                                          rpu_with_prefix.insert(rpu_with_prefix.end(), rpu_raw.begin(), rpu_raw.end());
-                                         rpu_entries.push_back({ timestamp, rpu_with_prefix });
+                                         rpu_entries.push_back({ timestamp, std::move(rpu_with_prefix) });
                                      }
                                 }
                             }
